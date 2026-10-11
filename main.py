@@ -3,10 +3,20 @@ import json
 import os
 import google.generativeai as genai
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 
 app = FastAPI(title="Bankism AI Firewall")
+
+# FIX 1: Add CORS middleware for Accessibility
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Securely load the key from the environment, falling back to a placeholder
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "YOUR_API_KEY_HERE")
@@ -108,13 +118,14 @@ def llm_deep_inspection(text: str, action: str) -> FirewallVerdict:
             sanitized_payload=None
         )
 
+# FIX 2: Add 'async' to endpoints for Efficiency
+@app.get("/")
+async def health_check():
+    return {"status": "Firewall is active"}
+
 @app.post("/scan", response_model=FirewallVerdict)
 async def scan_request(request: BankingRequest):
     rule_verdict = deterministic_check(request.user_input)
     if rule_verdict:
         return rule_verdict
     return llm_deep_inspection(request.user_input, request.action_type)
-
-@app.get("/")
-async def health_check():
-    return {"status": "Bankism Firewall Active"}
